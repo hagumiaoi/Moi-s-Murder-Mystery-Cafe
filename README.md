@@ -92,7 +92,7 @@ Script/
   "id": "rose",
   "name": "演员（露丝）",
   "script_file": "rose.txt",
-  "core_secret": "【真凶】昨晚用冰锥杀人...",
+  "core_secret": "...",
   "is_murderer": true
 }
 ```
