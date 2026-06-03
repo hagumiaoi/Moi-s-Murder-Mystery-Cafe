@@ -6,7 +6,7 @@ AI 驱动的单人剧本杀游戏引擎。**剧本与代码完全分离** ——
 
 - **前端**: React + TypeScript + Vite
 - **后端**: FastAPI (Python)
-- **AI**: 兼容 OpenAI API 的大模型（默认阿里云 DashScope Qwen）
+- **AI**: 兼容 OpenAI API 的大模型
 
 ## 快速开始
 
@@ -27,9 +27,9 @@ npm install
 在项目根目录创建 `.env`：
 
 ```
-SF_API_KEY=your_api_key
-SF_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-SF_MODEL=qwen3-max
+SF_API_KEY="your_api_key"
+SF_BASE_URL=""
+SF_MODEL=""
 TEMPERATURE=0
 ```
 
@@ -59,7 +59,7 @@ npm run dev
 
 ## Script 剧本系统
 
-所有游戏内容由 `Script/manifest.json` 定义，更换剧本只需修改此目录。
+所有游戏内容由 `Script/manifest.json` 定义,npc角色命名格式为npc_name.txt，更换剧本只需修改此目录。
 
 ### 目录结构
 
