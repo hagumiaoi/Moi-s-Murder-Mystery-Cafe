@@ -25,8 +25,8 @@ AI 驱动的单人剧本杀游戏引擎。项目定位是“本地自托管 Web 
 
 ```text
 .
-├── Script/                 # 剧本内容和 NPC 文本
-├── backend-ts/             # Bun/Hono 后端
+├── Script/                 # 案件剧本（单文件 Case Manifest）
+├── backend/                 # Bun/Hono 后端
 ├── frontend/               # React/Vite 前端
 ├── shared/                 # 前后端共享类型
 ├── openspec/               # 架构变更文档
@@ -50,7 +50,7 @@ Windows 用户可参考 Bun 官方安装方式。
 ## 安装依赖
 
 ```bash
-cd backend-ts
+cd backend
 bun install
 
 cd ../frontend
@@ -62,11 +62,11 @@ bun install
 复制配置模板：
 
 ```bash
-cd backend-ts
+cd backend
 cp config.example.toml config.toml
 ```
 
-编辑 `backend-ts/config.toml`：
+编辑 `backend/config.toml`：
 
 ```toml
 [server]
@@ -99,7 +99,7 @@ PORT=8010 bun run start
 终端 1：
 
 ```bash
-cd backend-ts
+cd backend
 bun run dev
 ```
 
@@ -134,7 +134,7 @@ http://localhost:5173
 cd frontend
 bun run build
 
-cd ../backend-ts
+cd ../backend
 bun run start
 ```
 
@@ -155,14 +155,14 @@ http://localhost:8000
 后端测试：
 
 ```bash
-cd backend-ts
+cd backend
 bun test
 ```
 
 后端类型检查：
 
 ```bash
-cd backend-ts
+cd backend
 bunx tsc --noEmit
 ```
 
@@ -175,44 +175,39 @@ bun run build
 
 ## 剧本系统
 
-所有游戏内容由 `Script/manifest.json` 和对应 NPC 文本文件定义。更换 `Script/` 内容即可切换剧本。
+所有游戏内容由单文件 `Script/manifest.json` 定义，格式为 `detective-case-v2`（探案解密引擎）。更换 `Script/manifest.json` 即可切换案件。
 
 ```text
 Script/
-├── manifest.json
-├── Li.txt
-├── Wang.txt
-└── rose.txt
+└── manifest.json   # 单文件 Case Manifest
 ```
 
 ### manifest 核心字段
 
 | 字段 | 说明 |
 | --- | --- |
-| `title` | 游戏标题 |
-| `description` | 剧情简介 |
-| `max_days` | 最大天数，超时判负 |
-| `rounds_per_day` | 每天可消耗的轮次数 |
-| `first_npc` | 默认审问 NPC |
-| `win_message` | 指认真凶时的结局文案 |
-| `lose_message` | 指认错误时的结局文案 |
-| `timeout_message` | 超时时的结局文案 |
-| `day_transition` | 日期切换正文模板 |
-| `npc_chat_prompt` | NPC 对话 Prompt 模板 |
-| `search_story_prompt` | 搜查叙事 Prompt 模板 |
-| `npcs` | NPC 定义 |
-| `search_locations` | 可搜查地点和线索 |
-| `timeline` | 时间线事件 |
+| `title` | 案件标题 |
+| `description` | 案件简介 |
+| `progression` | 进度驱动配置（`daily-rounds` / `free`） |
+| `entities` | 案件实体：人物、地点、物品、文件、事件、概念 |
+| `facts` | 案件事实与真相（含隐藏事实） |
+| `evidence` | 可发现的证据（关联实体、揭示事实） |
+| `interactions` | 可执行交互：`talk`、`search`、`inspect`、`confront`、`submit-resolution` |
+| `questions` | 结案问题（答案仅后端持有） |
+| `resolution` | 结案规则与结局文案 |
+| `panels` | 工作台面板定义（`entity-list`、`interaction`、`narrative`、`case-file`、`settings`） |
+| `prompts` | LLM Prompt 模板 |
 
-### NPC 定义示例
+### 实体定义示例
 
 ```json
 {
   "id": "rose",
+  "kind": "person",
   "name": "演员（露丝）",
-  "script_file": "rose.txt",
-  "core_secret": "美丽动人的当红女演员，与死者有过一段短暂的恋情。",
-  "is_murderer": true
+  "tags": ["suspect", "can-talk", "can-confront"],
+  "secret": "美丽动人的当红女演员...",
+  "script": "你叫露丝，是一位外表楚楚可怜..."
 }
 ```
 
@@ -220,21 +215,22 @@ Script/
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/info` | 获取剧本元信息 |
+| GET | `/api/info` | 获取公开案件数据（redacted） |
 | GET | `/api/state` | 获取当前游戏状态 |
 | POST | `/api/new-game` | 重置游戏 |
-| POST | `/api/chat` | 非流式对话 |
-| POST | `/api/chat/stream` | SSE 流式对话 |
-| POST | `/api/select-npc` | 切换审问对象 |
-| POST | `/api/accuse` | 指认凶手 |
-| POST | `/api/search` | 搜查地点 |
+| POST | `/api/select-entity` | 切换当前实体 |
+| POST | `/api/interact` | 统一交互（talk/search/inspect/confront/submit-resolution） |
+| POST | `/api/interact/stream` | SSE 流式交互 |
 | POST | `/api/undo-and-resend` | 撤回并重发玩家消息 |
+| GET | `/api/debug/manifest` | 调试：完整 Manifest |
+| GET | `/api/debug/state` | 调试：完整状态 |
+| POST | `/api/debug/prompt` | 调试：查看当前 Prompt |
 
 ## 当前限制
 
 - 游戏状态是内存态，服务重启后会丢失。
 - 多个浏览器同时访问同一个本地服务时会共享同一局游戏。
-- LLM API key 只应放在本地 `backend-ts/config.toml`，不要写进前端代码。
+- LLM API key 只应放在本地 `backend/config.toml`，不要写进前端代码。
 - 当前还没有打包为单文件可执行程序。
 
 ## 近期方向
