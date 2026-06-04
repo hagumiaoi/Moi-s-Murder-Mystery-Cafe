@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { ChatMessage } from "../types";
+import { MessageCircle } from "../layout/workspace/icons";
 
 interface ChatBoxProps {
   currentNpc: string;
@@ -8,6 +9,7 @@ interface ChatBoxProps {
   onToggleCollapse: () => void;
   onUndoResend?: (npcName: string, msgIndex: number, newMsg: string) => void;
   streamingReply?: string;
+  hideToggle?: boolean;
 }
 
 export default function ChatBox({
@@ -17,6 +19,7 @@ export default function ChatBox({
   onToggleCollapse,
   onUndoResend,
   streamingReply,
+  hideToggle,
 }: ChatBoxProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -58,10 +61,16 @@ export default function ChatBox({
 
   return (
     <div className={`chat-section ${collapsed ? "collapsed" : ""}`}>
-      <div className="section-header" onClick={onToggleCollapse}>
-        <span>💬 对话 {currentNpc && `· ${currentNpc}`}</span>
-        <span className="collapse-icon">{collapsed ? "▶" : "▼"}</span>
-      </div>
+      {hideToggle ? (
+        <div className="section-header" style={{ cursor: "default" }}>
+          <span><MessageCircle size={14} className="icon-inline" style={{ marginRight: 4 }} />对话 {currentNpc && `· ${currentNpc}`}</span>
+        </div>
+      ) : (
+        <div className="section-header" onClick={onToggleCollapse}>
+          <span><MessageCircle size={14} className="icon-inline" style={{ marginRight: 4 }} />对话 {currentNpc && `· ${currentNpc}`}</span>
+          <span className="collapse-icon">{collapsed ? "▶" : "▼"}</span>
+        </div>
+      )}
       {!collapsed && (
         <div className="chat-messages">
           {messages.length === 0 && !streamingReply && (
