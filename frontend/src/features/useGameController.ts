@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import * as api from "../api";
-import type { GameState } from "../types";
+import type { GameState, InteractionInput } from "../types";
 
 export function useGameController() {
   const [loading, setLoading] = useState(false);
@@ -8,7 +8,7 @@ export function useGameController() {
   const [streamingReply, setStreamingReply] = useState("");
   const [streamingStory, setStreamingStory] = useState("");
 
-  const handleSend = useCallback(async (message: string): Promise<GameState | null> => {
+  const handleSend = useCallback(async (text: string, entityId: string): Promise<GameState | null> => {
     setLoading(true);
     setStreamingReply("");
     setStreamingStory("");
@@ -40,23 +40,34 @@ export function useGameController() {
       };
 
       const onError = () => {
-        setLoading(true);
-        api.sendMessage(message).then((res) => {
+        const input: InteractionInput = {
+          interaction_id: "talk",
+          target_entity: entityId,
+          text,
+        };
+        api.interact(input).then((res) => {
           if (res.prompt) setLastPrompt(res.prompt);
           resolve(res.state ?? null);
-        }).catch(() => {
-          resolve(null);
-        }).finally(() => setLoading(false));
+        }).catch(() => resolve(null)).finally(() => setLoading(false));
       };
 
-      api.sendMessageStream(message, onToken, onDone, onError);
+      const input: InteractionInput = {
+        interaction_id: "talk",
+        target_entity: entityId,
+        text,
+      };
+      api.interactStream(input, onToken, onDone, onError);
     });
   }, []);
 
   const handleSearch = useCallback(async (locationId: string): Promise<GameState | null> => {
     setLoading(true);
     try {
-      const res = await api.searchLocation(locationId);
+      const input: InteractionInput = {
+        interaction_id: "search",
+        target_entity: locationId,
+      };
+      const res = await api.interact(input);
       if (res.prompt) setLastPrompt(res.prompt);
       return res.state ?? null;
     } catch {
@@ -66,20 +77,14 @@ export function useGameController() {
     }
   }, []);
 
-  const handleSelectNpc = useCallback(async (name: string): Promise<GameState> => {
-    return api.selectNPC(name);
+  const handleSelectEntity = useCallback(async (entityId: string): Promise<GameState> => {
+    return api.selectEntity(entityId);
   }, []);
 
-  const handleAccuse = useCallback(async (target: string): Promise<GameState | null> => {
-    const res = await api.accuse(target);
-    return res.state ?? null;
-  }, []);
-
-  const handleUndoResend = useCallback(async (npcName: string, msgIndex: number, newMsg: string): Promise<GameState | null> => {
+  const handleUndoResend = useCallback(async (entityId: string, msgIndex: number, newMsg: string): Promise<GameState | null> => {
     setLoading(true);
     try {
-      const res = await api.undoAndResend(npcName, msgIndex, newMsg);
-      if (res.prompt) setLastPrompt(res.prompt);
+      const res = await api.undoAndResend(entityId, msgIndex, newMsg);
       return res.state ?? null;
     } catch {
       return null;
@@ -103,8 +108,7 @@ export function useGameController() {
     streamingStory,
     handleSend,
     handleSearch,
-    handleSelectNpc,
-    handleAccuse,
+    handleSelectEntity,
     handleUndoResend,
     handleReset,
   };
