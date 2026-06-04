@@ -1,4 +1,5 @@
 import type { WorkspaceColumn } from "./types";
+import { getIcon } from "./icons";
 
 interface WorkspaceDockProps {
   columns: WorkspaceColumn[];
@@ -17,32 +18,36 @@ export function WorkspaceDock({ columns, activeIndex, onSelect }: WorkspaceDockP
         borderTop: "1px solid rgba(255, 255, 255, 0.08)",
       }}
     >
-      {columns.map((col, i) => (
-        <button
-          key={col.id}
-          type="button"
-          onClick={() => onSelect(i)}
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 2,
-            border: "none",
-            background: i === activeIndex ? "rgba(255, 255, 255, 0.08)" : "transparent",
-            color: i === activeIndex ? "#d4a574" : "rgba(255, 255, 255, 0.4)",
-            cursor: "pointer",
-            fontSize: 11,
-            fontFamily: "inherit",
-            padding: "4px 8px",
-            transition: "background 0.15s, color 0.15s",
-          }}
-        >
-          <span style={{ fontSize: 18 }}>{col.icon}</span>
-          <span>{col.title}</span>
-        </button>
-      ))}
+      {columns.map((col, i) => {
+        const Icon = getIcon(col.icon);
+        const active = i === activeIndex;
+        return (
+          <button
+            key={col.id}
+            type="button"
+            onClick={() => onSelect(i)}
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+              border: "none",
+              background: active ? "rgba(255, 255, 255, 0.08)" : "transparent",
+              color: active ? "#d4a574" : "rgba(255, 255, 255, 0.4)",
+              cursor: "pointer",
+              fontSize: 11,
+              fontFamily: "inherit",
+              padding: "4px 8px",
+              transition: "background 0.15s, color 0.15s",
+            }}
+          >
+            <Icon size={16} strokeWidth={1.5} />
+            <span>{col.title}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

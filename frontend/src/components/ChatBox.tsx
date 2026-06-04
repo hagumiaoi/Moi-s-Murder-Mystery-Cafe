@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { ChatMessage } from "../types";
+import { MessageCircle } from "../layout/workspace/icons";
 
 interface ChatBoxProps {
   currentNpc: string;
@@ -62,11 +63,11 @@ export default function ChatBox({
     <div className={`chat-section ${collapsed ? "collapsed" : ""}`}>
       {hideToggle ? (
         <div className="section-header" style={{ cursor: "default" }}>
-          <span>💬 对话 {currentNpc && `· ${currentNpc}`}</span>
+          <span><MessageCircle size={14} className="icon-inline" style={{ marginRight: 4 }} />对话 {currentNpc && `· ${currentNpc}`}</span>
         </div>
       ) : (
         <div className="section-header" onClick={onToggleCollapse}>
-          <span>💬 对话 {currentNpc && `· ${currentNpc}`}</span>
+          <span><MessageCircle size={14} className="icon-inline" style={{ marginRight: 4 }} />对话 {currentNpc && `· ${currentNpc}`}</span>
           <span className="collapse-icon">{collapsed ? "▶" : "▼"}</span>
         </div>
       )}

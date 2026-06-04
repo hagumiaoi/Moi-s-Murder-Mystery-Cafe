@@ -11,6 +11,7 @@ import {
 } from "./layout/workspace";
 import type { CeorlShellHandle } from "./layout/workspace";
 import { useGameController } from "./features/useGameController";
+import { RotateCcw, Gamepad2, Flame, Users, Binoculars, Calendar, ChartBar, Search, getIcon } from "./layout/workspace/icons";
 import "./App.css";
 
 export default function App() {
@@ -63,13 +64,13 @@ export default function App() {
           const s = await handleReset();
           if (s) setState(s);
         }}>
-          🔄 重新开始
+          <RotateCcw size={14} className="icon-inline" style={{ marginRight: 4 }} />重新开始
         </button>
         {loading && <span style={{ marginLeft: 12, opacity: 0.6 }}>思考中...</span>}
       </header>
       {state.game_over && (
         <div className="game-banner" style={{ flexShrink: 0 }}>
-          🎮 游戏已结束 - 点击"重新开始"再来一局
+          <Gamepad2 size={14} className="icon-inline" style={{ marginRight: 4 }} />游戏已结束 - 点击"重新开始"再来一局
         </div>
       )}
       <div style={{ flex: 1, overflow: "hidden" }}>
@@ -79,6 +80,7 @@ export default function App() {
           activeIndex={activeIndex}
           onIndexChange={setActiveIndex}
           renderColumn={(col, i) => {
+            const ColIcon = getIcon(col.icon);
             const wrapper = (children: React.ReactNode) => (
               <div
                 onClick={() => { if (i !== activeIndex) dockSelect(i); }}
@@ -90,49 +92,53 @@ export default function App() {
             switch (col.type) {
               case "investigation":
                 return wrapper(
-                  <div style={{ padding: 16 }}>
-                    <h3>📊 第 {state.days} / {script.max_days} 天</h3>
-                    <p>今日对话: {state.rounds} / {script.rounds_per_day}</p>
-                    <hr />
-                    <h3>👥 审问对象</h3>
-                    <div className="npc-radio-group">
-                      {npcs.map((name) => (
-                        <label key={name} className="npc-radio">
-                          <input
-                            type="radio"
-                            name="npc"
-                            value={name}
-                            checked={state.current_npc === name}
-                            onChange={async () => {
-                              const s = await handleSelectNpc(name);
-                              setState(s);
-                            }}
-                            disabled={state.game_over}
-                          />
-                          {name}
-                        </label>
-                      ))}
+                  <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                    <div className="section-header" style={{ cursor: "default" }}>
+                      <span><ColIcon size={14} className="icon-inline" style={{ marginRight: 4 }} />{col.title}</span>
                     </div>
-                    <hr />
-                    <AccusePanel npcs={npcs} gameOver={state.game_over} onAccuse={async (t) => {
-                      const s = await handleAccuse(t);
-                      if (s) setState(s);
-                    }} />
-                    <hr />
-                    <SearchDropdown
-                      locations={script.search_locations}
-                      gameOver={state.game_over}
-                      onSearch={async (id) => {
-                        const s = await handleSearch(id);
+                    <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+                      <p>第 {state.days} / {script.max_days} 天 · 今日对话 {state.rounds} / {script.rounds_per_day}</p>
+                      <hr />
+                      <h3><ChartBar size={14} className="icon-inline" style={{ marginRight: 4 }} />审问对象</h3>
+                      <div className="npc-radio-group">
+                        {npcs.map((name) => (
+                          <label key={name} className="npc-radio">
+                            <input
+                              type="radio"
+                              name="npc"
+                              value={name}
+                              checked={state.current_npc === name}
+                              onChange={async () => {
+                                const s = await handleSelectNpc(name);
+                                setState(s);
+                              }}
+                              disabled={state.game_over}
+                            />
+                            {name}
+                          </label>
+                        ))}
+                      </div>
+                      <hr />
+                      <AccusePanel npcs={npcs} gameOver={state.game_over} onAccuse={async (t) => {
+                        const s = await handleAccuse(t);
                         if (s) setState(s);
-                      }}
-                    />
+                      }} />
+                      <hr />
+                      <SearchDropdown
+                        locations={script.search_locations}
+                        gameOver={state.game_over}
+                        onSearch={async (id) => {
+                          const s = await handleSearch(id);
+                          if (s) setState(s);
+                        }}
+                      />
+                    </div>
                   </div>
                 );
               case "interrogation":
                 return wrapper(
                   <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                    <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
                       <ChatBox
                         currentNpc={state.current_npc}
                         messages={currentMessages}
@@ -170,33 +176,42 @@ export default function App() {
                 );
               case "dossier":
                 return wrapper(
-                  <div style={{ padding: 16 }}>
-                    <h3>🕵️ 线索 ({state.clues.length})</h3>
-                    {state.clues.length === 0 && <p>尚无发现的线索。</p>}
-                    {state.clues.map((c, i) => (
-                      <div key={i} style={{ marginBottom: 8, padding: 8, background: "rgba(255,255,255,0.03)", borderRadius: 4 }}>
-                        <strong>{c.location_name}</strong>: {c.clue}
-                      </div>
-                    ))}
-                    <hr />
-                    <h3>📅 时间线</h3>
-                    {script.timeline.map((e, i) => (
-                      <div key={i} style={{ marginBottom: 4, fontSize: 13, opacity: 0.7 }}>{e.time}: {e.event}</div>
-                    ))}
-                    <hr />
-                    <h3>👥 NPC 简介</h3>
-                    {script.npcs.map((n) => <div key={n.id} style={{ marginBottom: 4, fontSize: 13 }}>{n.name}</div>)}
+                  <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                    <div className="section-header" style={{ cursor: "default" }}>
+                      <span><ColIcon size={14} className="icon-inline" style={{ marginRight: 4 }} />{col.title}</span>
+                    </div>
+                    <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+                      <h3><Binoculars size={14} className="icon-inline" style={{ marginRight: 4 }} />线索 ({state.clues.length})</h3>
+                      {state.clues.length === 0 && <p>尚无发现的线索。</p>}
+                      {state.clues.map((c, i) => (
+                        <div key={i} style={{ marginBottom: 8, padding: 8, background: "rgba(255,255,255,0.03)", borderRadius: 4 }}>
+                          <strong>{c.location_name}</strong>: {c.clue}
+                        </div>
+                      ))}
+                      <hr />
+                      <h3><Calendar size={14} className="icon-inline" style={{ marginRight: 4 }} />时间线</h3>
+                      {script.timeline.map((e, i) => (
+                        <div key={i} style={{ marginBottom: 4, fontSize: 13, opacity: 0.7 }}>{e.time}: {e.event}</div>
+                      ))}
+                      <hr />
+                      <h3><Users size={14} className="icon-inline" style={{ marginRight: 4 }} />NPC 简介</h3>
+                      {script.npcs.map((n) => <div key={n.id} style={{ marginBottom: 4, fontSize: 13 }}>{n.name}</div>)}
+                    </div>
                   </div>
                 );
               case "debug":
                 return wrapper(
-                  <div style={{ padding: 16 }}>
-                    <h3>🔧 调试</h3>
-                    <button type="button" onClick={() => {
-                      if (!showPrompt && !window.confirm("开发使用，点开可能会造成剧情泄露，你确定要打开吗？")) return;
-                      setShowPrompt(!showPrompt);
-                    }}> {showPrompt ? "隐藏 Prompt" : "显示 Prompt"}</button>
-                    {showPrompt && lastPrompt && <textarea readOnly value={lastPrompt} rows={12} style={{ width: "100%", background: "#1a1210", color: "#aaa", border: "1px solid #333", fontSize: 12, marginTop: 8 }} />}
+                  <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                    <div className="section-header" style={{ cursor: "default" }}>
+                      <span><ColIcon size={14} className="icon-inline" style={{ marginRight: 4 }} />{col.title}</span>
+                    </div>
+                    <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+                      <button type="button" onClick={() => {
+                        if (!showPrompt && !window.confirm("开发使用，点开可能会造成剧情泄露，你确定要打开吗？")) return;
+                        setShowPrompt(!showPrompt);
+                      }}> {showPrompt ? "隐藏 Prompt" : "显示 Prompt"}</button>
+                      {showPrompt && lastPrompt && <textarea readOnly value={lastPrompt} rows={12} style={{ width: "100%", background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border-light)", fontSize: "var(--text-sm)", marginTop: 8 }} />}
+                    </div>
                   </div>
                 );
             }
@@ -215,7 +230,7 @@ function AccusePanel({ npcs, gameOver, onAccuse }: { npcs: string[]; gameOver: b
       <select value={target} onChange={(e) => setTarget(e.target.value)} disabled={gameOver}>
         {npcs.map((n) => <option key={n} value={n}>{n}</option>)}
       </select>
-      <button className="accuse-btn" onClick={() => onAccuse(target)} disabled={gameOver} style={{ marginTop: 4 }}>🔥 发起指认</button>
+      <button className="accuse-btn" onClick={() => onAccuse(target)} disabled={gameOver} style={{ marginTop: 4 }}><Flame size={14} className="icon-inline" /> 发起指认</button>
     </div>
   );
 }
@@ -231,7 +246,7 @@ function SearchDropdown({ locations, gameOver, onSearch }: { locations: { id: st
   }, [open]);
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button className="search-toggle-btn" type="button" onClick={() => setOpen(!open)} disabled={gameOver} style={{ width: "100%" }}>🔍 搜集线索（消耗1轮）</button>
+      <button className="search-toggle-btn" type="button" onClick={() => setOpen(!open)} disabled={gameOver} style={{ width: "100%" }}><Search size={14} className="icon-inline" /> 搜集线索（消耗1轮）</button>
       {open && (
         <div className="search-dropdown">
           {locations.map((loc) => (
