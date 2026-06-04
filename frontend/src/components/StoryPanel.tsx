@@ -5,24 +5,23 @@ interface StoryPanelProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   streamingStory?: string;
+  hideToggle?: boolean;
 }
 
-function getStoryText(s: string | StoryEntry): string {
-  return typeof s === "string" ? s : s.story;
-}
-
-function getThinking(s: string | StoryEntry): string | undefined {
-  return typeof s === "string" ? undefined : s.thinking;
-}
-
-export default function StoryPanel({ stories, collapsed, onToggleCollapse, streamingStory }: StoryPanelProps) {
+export default function StoryPanel({ stories, collapsed, onToggleCollapse, streamingStory, hideToggle }: StoryPanelProps) {
   const hasStreaming = streamingStory && streamingStory.length > 0;
   return (
     <div className={`story-section ${collapsed ? "collapsed" : ""}`}>
-      <div className="section-header" onClick={onToggleCollapse}>
-        <span>📖 正文</span>
-        <span className="collapse-icon">{collapsed ? "▶" : "▼"}</span>
-      </div>
+      {hideToggle ? (
+        <div className="section-header" style={{ cursor: "default" }}>
+          <span>📖 正文</span>
+        </div>
+      ) : (
+        <div className="section-header" onClick={onToggleCollapse}>
+          <span>📖 正文</span>
+          <span className="collapse-icon">{collapsed ? "▶" : "▼"}</span>
+        </div>
+      )}
       {!collapsed && (
         <div className="story-content">
           {stories.length === 0 && !hasStreaming && (

@@ -1,0 +1,53 @@
+/* ============================================
+   CEORL — Composable Ergonomic Ordered Rolling Layouts
+   核心样式
+   ============================================ */
+
+/* --- 容器层 --- */
+.ceorl-shell {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.ceorl-shell::-webkit-scrollbar {
+  display: none;
+}
+
+/* --- 列容器 --- */
+.ceorl-column {
+  flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  position: relative;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  --ceorl-focus-color: #66ccff;
+}
+
+.ceorl-column-inner {
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.ceorl-column[data-active="true"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--ceorl-focus-color);
+}
+
+/* --- 堆叠容器 --- */
+.ceorl-stack {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 8px;
+}
+
+.ceorl-stack > * {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
