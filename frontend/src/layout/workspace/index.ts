@@ -4,4 +4,4 @@ export { WorkspaceDock } from "./WorkspaceDock";
 export { useWorkspaceLayout } from "./useWorkspaceLayout";
 export { useWorkspaceKeyboard } from "./useWorkspaceKeyboard";
 export { type WorkspaceColumn, type WorkspaceColumnType, DEFAULT_COLUMNS } from "./types";
-export { getIcon, type IconName } from "./icons";
+export { getIcon } from "./icons";

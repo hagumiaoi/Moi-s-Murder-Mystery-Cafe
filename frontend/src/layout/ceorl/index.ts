@@ -6,7 +6,6 @@
  */
 
 export { CeorlShell } from "./components/Shell.tsx";
-export type { CeorlShellHandle } from "./components/Shell.tsx";
 export { CeorlColumn } from "./components/Column.tsx";
 export { CeorlStack } from "./components/Stack.tsx";
-export type { ColumnSpec } from "./components/types.ts";
+export type { CeorlShellHandle, ColumnDescriptor } from "./components/types.ts";

@@ -1,8 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import ChatBox from "./components/ChatBox";
-import StoryPanel from "./components/StoryPanel";
 import * as api from "./api";
-import type { GameState, ScriptInfo } from "./types";
+import type { GameState, PanelDef } from "./types";
+import type { ScriptInfoData, WorkspacePanel, GameActions } from "./panels/registry";
+import { registerPanel, getPanel } from "./panels/registry";
+import EntityListPanel from "./panels/EntityListPanel";
+import InteractionPanel from "./panels/InteractionPanel";
+import NarrativePanel from "./panels/NarrativePanel";
+import CaseFilePanel from "./panels/CaseFilePanel";
+import ResolutionPanel from "./panels/ResolutionPanel";
+import SettingsPanel from "./panels/SettingsPanel";
+import UnknownPanel from "./panels/UnknownPanel";
 import {
   WorkspaceShell,
   WorkspaceDock,
@@ -11,15 +18,37 @@ import {
 } from "./layout/workspace";
 import type { CeorlShellHandle } from "./layout/workspace";
 import { useGameController } from "./features/useGameController";
-import { RotateCcw, Gamepad2, Flame, Users, Binoculars, Calendar, ChartBar, Search, getIcon } from "./layout/workspace/icons";
+import { RotateCcw, Gamepad2 } from "./layout/workspace/icons";
 import "./App.css";
 
-export default function App() {
-  const [script, setScript] = useState<ScriptInfo | null>(null);
-  const [state, setState] = useState<GameState | null>(null);
-  const [showPrompt, setShowPrompt] = useState(false);
+registerPanel("entity-list", EntityListPanel);
+registerPanel("interaction", InteractionPanel);
+registerPanel("narrative", NarrativePanel);
+registerPanel("case-file", CaseFilePanel);
+registerPanel("resolution", ResolutionPanel);
+registerPanel("settings", SettingsPanel);
 
-  const { columns, activeIndex, setActiveIndex, focusColumn } = useWorkspaceLayout();
+export default function App() {
+  const [script, setScript] = useState<ScriptInfoData | null>(null);
+  const [state, setState] = useState<GameState | null>(null);
+
+  const refreshInfo = useCallback(async () => {
+    const data = await api.getInfo();
+    setScript(data as unknown as ScriptInfoData);
+  }, []);
+
+  const manifestPanels: WorkspacePanel[] = (script?.panels ?? []).map((p: PanelDef) => ({
+    id: p.id,
+    type: p.type,
+    title: p.title,
+    icon: p.icon,
+    width: p.width,
+    filter: p.filter as WorkspacePanel["filter"],
+    sections: p.sections,
+    config: p.config,
+  }));
+
+  const { columns, activeIndex, setActiveIndex } = useWorkspaceLayout(manifestPanels);
   const shellRef = useRef<CeorlShellHandle>(null);
   const {
     loading,
@@ -28,16 +57,15 @@ export default function App() {
     streamingStory,
     handleSend,
     handleSearch,
-    handleSelectNpc,
-    handleAccuse,
+    handleSelectEntity,
     handleUndoResend,
     handleReset,
   } = useGameController();
 
   useEffect(() => {
-    api.getInfo().then(setScript).catch(() => {});
+    refreshInfo().catch(() => {});
     api.getState().then(setState).catch(() => {});
-  }, []);
+  }, [refreshInfo]);
 
   useWorkspaceKeyboard(activeIndex, columns.length, useCallback((i: number) => {
     setActiveIndex(i);
@@ -53,24 +81,75 @@ export default function App() {
     return <div className="loading-screen">加载中...</div>;
   }
 
-  const currentMessages = state.chat_history[state.current_npc] || [];
-  const npcs = script.npcs.map((n) => n.name);
+  const currentEntityId = state.current_entity;
+
+  const gameActions: GameActions = {
+    sendMessage: async (text: string) => {
+      const s = await handleSend(text, currentEntityId);
+      if (s) {
+        setState(s);
+        await refreshInfo().catch(() => {});
+      }
+      return s;
+    },
+    search: async (locationId: string) => {
+      const s = await handleSearch(locationId);
+      if (s) {
+        setState(s);
+        await refreshInfo().catch(() => {});
+      }
+      return s;
+    },
+    selectEntity: async (name: string) => {
+      const entity = (script.entities ?? []).find((e) => e.name === name);
+      if (entity) {
+        const s = await handleSelectEntity(entity.id);
+        if (s) setState(s);
+        return s;
+      }
+      return null;
+    },
+    submitResolution: async (answers) => {
+      const res = await api.interact({
+        interaction_id: "submit-resolution",
+        answers,
+      });
+      if (res.state) {
+        setState(res.state);
+        await refreshInfo().catch(() => {});
+      }
+      return res.state ?? null;
+    },
+    undoResend: async (_entityId: string, msgIndex: number, newMsg: string) => {
+      const s = await handleUndoResend(currentEntityId, msgIndex, newMsg);
+      if (s) {
+        setState(s);
+        await refreshInfo().catch(() => {});
+      }
+      return s;
+    },
+    reset: async () => {
+      const s = await handleReset();
+      if (s) {
+        setState(s);
+        await refreshInfo().catch(() => {});
+      }
+      return s;
+    },
+  };
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <header className="app-header" style={{ flexShrink: 0 }}>
         <h1>{script.title}</h1>
-        <button className="reset-btn" onClick={async () => {
-          const s = await handleReset();
-          if (s) setState(s);
-        }}>
-          <RotateCcw size={14} className="icon-inline" style={{ marginRight: 4 }} />重新开始
+        <button className="reset-btn" onClick={async () => { await gameActions.reset(); }}>
+          <RotateCcw size={14} style={{ marginRight: 4, display: "inline" }} />重新开始
         </button>
         {loading && <span style={{ marginLeft: 12, opacity: 0.6 }}>思考中...</span>}
       </header>
       {state.game_over && (
         <div className="game-banner" style={{ flexShrink: 0 }}>
-          <Gamepad2 size={14} className="icon-inline" style={{ marginRight: 4 }} />游戏已结束 - 点击"重新开始"再来一局
+          <Gamepad2 size={14} style={{ marginRight: 4, display: "inline" }} />游戏已结束 - 点击"重新开始"再来一局
         </div>
       )}
       <div style={{ flex: 1, overflow: "hidden" }}>
@@ -80,182 +159,51 @@ export default function App() {
           activeIndex={activeIndex}
           onIndexChange={setActiveIndex}
           renderColumn={(col, i) => {
-            const ColIcon = getIcon(col.icon);
-            const wrapper = (children: React.ReactNode) => (
+            const PanelComponent = getPanel(col.type);
+
+            const panelInfo: WorkspacePanel = {
+              id: col.id,
+              type: col.type,
+              title: col.title,
+              icon: col.icon,
+              width: col.width as WorkspacePanel["width"],
+              filter: col.filter,
+              sections: col.sections,
+              config: col.config,
+            };
+
+            const content = PanelComponent ? (
+              <PanelComponent
+                script={script}
+                state={state}
+                gameActions={gameActions}
+                panel={panelInfo}
+                streamingReply={streamingReply}
+                streamingStory={streamingStory}
+                loading={loading}
+                lastPrompt={lastPrompt}
+              />
+            ) : (
+              <UnknownPanel
+                script={script}
+                state={state}
+                gameActions={gameActions}
+                panel={panelInfo}
+              />
+            );
+
+            return (
               <div
                 onClick={() => { if (i !== activeIndex) dockSelect(i); }}
                 style={{ height: "100%", cursor: i !== activeIndex ? "pointer" : "default" }}
               >
-                {children}
+                {content}
               </div>
             );
-            switch (col.type) {
-              case "investigation":
-                return wrapper(
-                  <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                    <div className="section-header" style={{ cursor: "default" }}>
-                      <span><ColIcon size={14} className="icon-inline" style={{ marginRight: 4 }} />{col.title}</span>
-                    </div>
-                    <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-                      <p>第 {state.days} / {script.max_days} 天 · 今日对话 {state.rounds} / {script.rounds_per_day}</p>
-                      <hr />
-                      <h3><ChartBar size={14} className="icon-inline" style={{ marginRight: 4 }} />审问对象</h3>
-                      <div className="npc-radio-group">
-                        {npcs.map((name) => (
-                          <label key={name} className="npc-radio">
-                            <input
-                              type="radio"
-                              name="npc"
-                              value={name}
-                              checked={state.current_npc === name}
-                              onChange={async () => {
-                                const s = await handleSelectNpc(name);
-                                setState(s);
-                              }}
-                              disabled={state.game_over}
-                            />
-                            {name}
-                          </label>
-                        ))}
-                      </div>
-                      <hr />
-                      <AccusePanel npcs={npcs} gameOver={state.game_over} onAccuse={async (t) => {
-                        const s = await handleAccuse(t);
-                        if (s) setState(s);
-                      }} />
-                      <hr />
-                      <SearchDropdown
-                        locations={script.search_locations}
-                        gameOver={state.game_over}
-                        onSearch={async (id) => {
-                          const s = await handleSearch(id);
-                          if (s) setState(s);
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              case "interrogation":
-                return wrapper(
-                  <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-                      <ChatBox
-                        currentNpc={state.current_npc}
-                        messages={currentMessages}
-                        collapsed={false}
-                        onToggleCollapse={() => {}}
-                        onUndoResend={async (npc, idx, msg) => {
-                          const s = await handleUndoResend(npc, idx, msg);
-                          if (s) setState(s);
-                        }}
-                        streamingReply={streamingReply}
-                        hideToggle
-                      />
-                    </div>
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        const input = (e.currentTarget.elements.namedItem("msg") as HTMLInputElement);
-                        if (!input.value.trim() || state.game_over || loading) return;
-                        const s = await handleSend(input.value.trim());
-                        if (s) setState(s);
-                        input.value = "";
-                      }}
-                      style={{ padding: "8px 12px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 8, flexShrink: 0 }}
-                    >
-                      <input className="chat-input" name="msg" placeholder="输入你的审问问题..." disabled={state.game_over} style={{ flex: 1 }} />
-                      <button type="submit" className="send-btn" disabled={state.game_over || loading}>发送</button>
-                    </form>
-                  </div>
-                );
-              case "story-log":
-                return wrapper(
-                  <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                    <StoryPanel stories={state.stories ?? []} collapsed={false} onToggleCollapse={() => {}} streamingStory={streamingStory} hideToggle />
-                  </div>
-                );
-              case "dossier":
-                return wrapper(
-                  <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                    <div className="section-header" style={{ cursor: "default" }}>
-                      <span><ColIcon size={14} className="icon-inline" style={{ marginRight: 4 }} />{col.title}</span>
-                    </div>
-                    <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-                      <h3><Binoculars size={14} className="icon-inline" style={{ marginRight: 4 }} />线索 ({state.clues.length})</h3>
-                      {state.clues.length === 0 && <p>尚无发现的线索。</p>}
-                      {state.clues.map((c, i) => (
-                        <div key={i} style={{ marginBottom: 8, padding: 8, background: "rgba(255,255,255,0.03)", borderRadius: 4 }}>
-                          <strong>{c.location_name}</strong>: {c.clue}
-                        </div>
-                      ))}
-                      <hr />
-                      <h3><Calendar size={14} className="icon-inline" style={{ marginRight: 4 }} />时间线</h3>
-                      {script.timeline.map((e, i) => (
-                        <div key={i} style={{ marginBottom: 4, fontSize: 13, opacity: 0.7 }}>{e.time}: {e.event}</div>
-                      ))}
-                      <hr />
-                      <h3><Users size={14} className="icon-inline" style={{ marginRight: 4 }} />NPC 简介</h3>
-                      {script.npcs.map((n) => <div key={n.id} style={{ marginBottom: 4, fontSize: 13 }}>{n.name}</div>)}
-                    </div>
-                  </div>
-                );
-              case "debug":
-                return wrapper(
-                  <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                    <div className="section-header" style={{ cursor: "default" }}>
-                      <span><ColIcon size={14} className="icon-inline" style={{ marginRight: 4 }} />{col.title}</span>
-                    </div>
-                    <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-                      <button type="button" onClick={() => {
-                        if (!showPrompt && !window.confirm("开发使用，点开可能会造成剧情泄露，你确定要打开吗？")) return;
-                        setShowPrompt(!showPrompt);
-                      }}> {showPrompt ? "隐藏 Prompt" : "显示 Prompt"}</button>
-                      {showPrompt && lastPrompt && <textarea readOnly value={lastPrompt} rows={12} style={{ width: "100%", background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border-light)", fontSize: "var(--text-sm)", marginTop: 8 }} />}
-                    </div>
-                  </div>
-                );
-            }
           }}
         />
       </div>
       <WorkspaceDock columns={columns} activeIndex={activeIndex} onSelect={dockSelect} />
-    </div>
-  );
-}
-
-function AccusePanel({ npcs, gameOver, onAccuse }: { npcs: string[]; gameOver: boolean; onAccuse: (target: string) => void }) {
-  const [target, setTarget] = useState(npcs[0]);
-  return (
-    <div>
-      <select value={target} onChange={(e) => setTarget(e.target.value)} disabled={gameOver}>
-        {npcs.map((n) => <option key={n} value={n}>{n}</option>)}
-      </select>
-      <button className="accuse-btn" onClick={() => onAccuse(target)} disabled={gameOver} style={{ marginTop: 4 }}><Flame size={14} className="icon-inline" /> 发起指认</button>
-    </div>
-  );
-}
-
-function SearchDropdown({ locations, gameOver, onSearch }: { locations: { id: string; name: string; description: string }[]; gameOver: boolean; onSearch: (id: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button className="search-toggle-btn" type="button" onClick={() => setOpen(!open)} disabled={gameOver} style={{ width: "100%" }}><Search size={14} className="icon-inline" /> 搜集线索（消耗1轮）</button>
-      {open && (
-        <div className="search-dropdown">
-          {locations.map((loc) => (
-            <button key={loc.id} className="search-location-btn" type="button" onClick={() => { onSearch(loc.id); setOpen(false); }}>
-              <strong>{loc.name}</strong><span className="loc-desc">{loc.description}</span>
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

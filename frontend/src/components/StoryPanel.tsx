@@ -1,6 +1,16 @@
 import type { StoryEntry } from "../types";
 import { BookOpen, Brain } from "../layout/workspace/icons";
 
+function getThinking(s: string | StoryEntry): string | undefined {
+  if (typeof s === "string") return undefined;
+  return s.thinking;
+}
+
+function getStoryText(s: string | StoryEntry): string {
+  if (typeof s === "string") return s;
+  return s.story;
+}
+
 interface StoryPanelProps {
   stories: (string | StoryEntry)[];
   collapsed: boolean;
