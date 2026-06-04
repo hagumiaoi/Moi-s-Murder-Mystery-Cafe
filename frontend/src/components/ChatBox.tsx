@@ -1,14 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import type { ChatMessage, SearchLocation } from "../types";
+import type { ChatMessage } from "../types";
 
 interface ChatBoxProps {
   currentNpc: string;
   messages: ChatMessage[];
-  gameOver: boolean;
   collapsed: boolean;
-  searchLocations: SearchLocation[];
-  onSend: (message: string) => void;
-  onSearch: (locationId: string) => void;
   onToggleCollapse: () => void;
   onUndoResend?: (npcName: string, msgIndex: number, newMsg: string) => void;
   streamingReply?: string;
@@ -17,23 +13,16 @@ interface ChatBoxProps {
 export default function ChatBox({
   currentNpc,
   messages,
-  gameOver,
   collapsed,
-  searchLocations,
-  onSend,
-  onSearch,
   onToggleCollapse,
   onUndoResend,
   streamingReply,
 }: ChatBoxProps) {
-  const [input, setInput] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLInputElement>(null);
-  const blurTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!collapsed) {
@@ -42,25 +31,8 @@ export default function ChatBox({
   }, [messages, collapsed, streamingReply]);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowSearch(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  useEffect(() => {
     if (editingIndex !== null) editRef.current?.focus();
   }, [editingIndex]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || gameOver) return;
-    onSend(input.trim());
-    setInput("");
-  };
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();

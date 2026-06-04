@@ -154,11 +154,7 @@ export default function App() {
           <ChatBox
             currentNpc={state.current_npc}
             messages={currentMessages}
-            gameOver={state.game_over}
             collapsed={chatCollapsed}
-            searchLocations={script.search_locations}
-            onSend={handleSend}
-            onSearch={handleSearch}
             onUndoResend={handleUndoResend}
             onToggleCollapse={() => setChatCollapsed(!chatCollapsed)}
             streamingReply={streamingReply}

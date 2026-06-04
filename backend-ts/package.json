@@ -1,0 +1,21 @@
+{
+  "name": "moi-murder-mystery-backend",
+  "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/server.ts",
+    "start": "bun run src/server.ts",
+    "test": "bun test",
+    "lint": "bunx @biomejs/biome check src/"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "^0.78.0",
+    "hono": "^4.6.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "latest"
+  }
+}
