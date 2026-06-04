@@ -338,6 +338,10 @@ select {
   color: #d8ccb8;
 }
 
+.chat-msg.npc .msg-bubble.streaming {
+  border-color: #5a4a3a;
+}
+
 /* Story section */
 .story-section {
   flex: 1 1 0;
@@ -371,6 +375,19 @@ select {
 
 .story-paragraph:last-child {
   border-bottom: none;
+}
+
+.story-paragraph.streaming {
+  border-bottom: none;
+}
+
+.cursor-blink {
+  animation: blink 0.8s step-end infinite;
+  color: #c9a84c;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
 }
 
 .story-empty {

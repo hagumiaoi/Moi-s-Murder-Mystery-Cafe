@@ -16,6 +16,8 @@ export default function App() {
   const [storyCollapsed, setStoryCollapsed] = useState(false);
   const [lastPrompt, setLastPrompt] = useState("");
   const [showPrompt, setShowPrompt] = useState(false);
+  const [streamingReply, setStreamingReply] = useState("");
+  const [streamingStory, setStreamingStory] = useState("");
 
   useEffect(() => {
     api.getInfo().then(setScript).catch(() => {});
@@ -24,14 +26,50 @@ export default function App() {
 
   const handleSend = useCallback(async (message: string) => {
     setLoading(true);
-    try {
-      const res = await api.sendMessage(message);
-      if (res.state) setState(res.state);
-      if (res.prompt) setLastPrompt(res.prompt);
-    } catch {
-      // ignore
-    }
-    setLoading(false);
+    setStreamingReply("");
+    setStreamingStory("");
+
+    let fullText = "";
+    let replyStart = -1;
+    let storyStart = -1;
+
+    const onToken = (token: string) => {
+      fullText += token;
+
+      if (replyStart < 0) {
+        replyStart = fullText.indexOf("NPC回复：");
+      }
+      if (storyStart < 0 && replyStart >= 0) {
+        storyStart = fullText.indexOf("正文：", replyStart);
+      }
+
+      if (replyStart >= 0) {
+        const replyEnd = storyStart >= 0 ? storyStart : fullText.length;
+        setStreamingReply(fullText.slice(replyStart + "NPC回复：".length, replyEnd).trimStart());
+      }
+      if (storyStart >= 0) {
+        setStreamingStory(fullText.slice(storyStart + "正文：".length).trimStart());
+      }
+    };
+
+    const onDone = (newState: GameState, prompt?: string) => {
+      setState(newState);
+      if (prompt) setLastPrompt(prompt);
+      setStreamingReply("");
+      setStreamingStory("");
+      setLoading(false);
+    };
+
+    const onError = () => {
+      // fallback: try non-streaming
+      setLoading(true);
+      api.sendMessage(message).then((res) => {
+        if (res.state) setState(res.state);
+        if (res.prompt) setLastPrompt(res.prompt);
+      }).catch(() => {}).finally(() => setLoading(false));
+    };
+
+    api.sendMessageStream(message, onToken, onDone, onError);
   }, []);
 
   const handleSearch = useCallback(async (locationId: string) => {
@@ -54,6 +92,18 @@ export default function App() {
   const handleAccuse = useCallback(async (target: string) => {
     const res = await api.accuse(target);
     if (res.state) setState(res.state);
+  }, []);
+
+  const handleUndoResend = useCallback(async (npcName: string, msgIndex: number, newMsg: string) => {
+    setLoading(true);
+    try {
+      const res = await api.undoAndResend(npcName, msgIndex, newMsg);
+      if (res.state) setState(res.state);
+      if (res.prompt) setLastPrompt(res.prompt);
+    } catch {
+      // ignore
+    }
+    setLoading(false);
   }, []);
 
   const handleReset = useCallback(async () => {
@@ -109,12 +159,15 @@ export default function App() {
             searchLocations={script.search_locations}
             onSend={handleSend}
             onSearch={handleSearch}
+            onUndoResend={handleUndoResend}
             onToggleCollapse={() => setChatCollapsed(!chatCollapsed)}
+            streamingReply={streamingReply}
           />
           <StoryPanel
             stories={state.stories ?? []}
             collapsed={storyCollapsed}
             onToggleCollapse={() => setStoryCollapsed(!storyCollapsed)}
+            streamingStory={streamingStory}
           />
           <div className="bottom-bar">
             <div className="search-bar">

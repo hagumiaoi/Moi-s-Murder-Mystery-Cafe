@@ -37,12 +37,17 @@ export interface ScriptInfo {
   search_locations: SearchLocation[];
 }
 
+export interface StoryEntry {
+  story: string;
+  thinking?: string;
+}
+
 export interface GameState {
   days: number;
   rounds: number;
   current_npc: string;
   game_over: boolean;
-  stories: string[];
+  stories: (string | StoryEntry)[];
   chat_history: Record<string, ChatMessage[]>;
   clues: ClueEntry[];
 }
@@ -50,6 +55,7 @@ export interface GameState {
 export interface ChatResponse {
   reply: string;
   story: string;
+  thinking?: string;
   prompt: string;
   state: GameState;
   game_over?: boolean;
@@ -66,7 +72,7 @@ export interface SearchResponse {
   scene: string;
   clue: string;
   story: string;
-  prompt: string;
+  prompt?: string;
   state: GameState;
   game_over?: boolean;
   error?: string;
