@@ -26,6 +26,7 @@ const configSchema = z.object({
   server: serverSchema,
   llm: llmSchema,
   game: gameSchema,
+  debug: z.object({ enabled: z.boolean() }).optional().default({ enabled: false }),
 });
 
 export type Config = z.infer<typeof configSchema>;

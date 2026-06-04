@@ -11,3 +11,6 @@ temperature = 0.0
 
 [game]
 script_dir = "../Script"
+
+[debug]
+enabled = false
