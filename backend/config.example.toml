@@ -3,11 +3,31 @@ port = 8000
 host = "0.0.0.0"
 
 [llm]
-provider = "openai-compatible"
-api_key = ""
-base_url = "https://api.siliconflow.cn/v1"
-model = "deepseek-ai/DeepSeek-V3"
+# Switch the active model by changing this alias, or set LLM_MODEL in the environment.
+default_model = "deepseek-v4-flash"
+
+# Built-in pi-ai provider/model. API key is read from DEEPSEEK_API_KEY unless api_key is set.
+[llm.models.deepseek-v4-flash]
+provider = "deepseek"
+model = "deepseek-v4-flash"
 temperature = 0.0
+
+# Another built-in pi-ai provider/model. API key is read from OPENAI_API_KEY unless api_key is set.
+[llm.models.openai-gpt-4o-mini]
+provider = "openai"
+model = "gpt-4o-mini"
+temperature = 0.2
+
+# Custom OpenAI-compatible endpoint for providers not built into pi-ai.
+[llm.models.siliconflow-deepseek-v3]
+provider = "siliconflow"
+model = "deepseek-ai/DeepSeek-V3"
+api = "openai-completions"
+base_url = "https://api.siliconflow.cn/v1"
+api_key = ""
+temperature = 0.0
+context_window = 128000
+max_tokens = 32000
 
 [game]
 script_dir = "../Script"
