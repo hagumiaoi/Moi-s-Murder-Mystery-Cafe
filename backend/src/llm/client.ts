@@ -1,6 +1,15 @@
-import { complete, stream, type Model, type Context } from "@earendil-works/pi-ai";
+import {
+  complete as piComplete,
+  getEnvApiKey,
+  getModel,
+  stream as piStream,
+  type Api,
+  type Context,
+  type Model,
+  type ProviderStreamOptions,
+} from "@earendil-works/pi-ai";
 import { parseLlmOutput } from "./parser.ts";
-import { config } from "../config.ts";
+import { config, type LlmConfig, type LlmModelConfig } from "../config.ts";
 
 export interface LlmCompletionInput {
   messages: Array<{ role: string; content: string }>;
@@ -18,23 +27,13 @@ export interface LlmClient {
   stream(input: LlmCompletionInput): AsyncGenerator<string>;
 }
 
-const model: Model<"openai-completions"> = {
-  id: config.llm.model,
-  name: config.llm.model,
-  api: "openai-completions",
-  provider: config.llm.provider,
-  baseUrl: config.llm.base_url,
-  reasoning: false,
-  input: ["text"],
-  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-  contextWindow: 128000,
-  maxTokens: 32000,
-};
-
-const options: Record<string, unknown> = {
-  apiKey: config.llm.api_key,
-  temperature: config.llm.temperature,
-};
+export interface ResolvedLlmModel {
+  alias: string;
+  entry: LlmModelConfig;
+  model: Model<Api>;
+  options: ProviderStreamOptions;
+  hasApiKey: boolean;
+}
 
 function toContext(input: LlmCompletionInput): Context {
   return {
@@ -45,13 +44,78 @@ function toContext(input: LlmCompletionInput): Context {
   } as unknown as Context;
 }
 
+function nonEmpty(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function isCustomModel(entry: LlmModelConfig): boolean {
+  return Boolean(entry.base_url || entry.api);
+}
+
+function resolveBuiltInModel(alias: string, entry: LlmModelConfig): Model<Api> {
+  const model = getModel(entry.provider as never, entry.model as never) as Model<Api> | undefined;
+  if (!model) {
+    throw new Error(`Invalid LLM model "${alias}": pi-ai provider/model not found: ${entry.provider}/${entry.model}`);
+  }
+  return model;
+}
+
+function resolveCustomModel(alias: string, entry: LlmModelConfig): Model<Api> {
+  if (!entry.base_url) {
+    throw new Error(`Invalid LLM model "${alias}": custom model entries require base_url`);
+  }
+
+  return {
+    id: entry.model,
+    name: entry.model,
+    api: (entry.api ?? "openai-completions") as Api,
+    provider: entry.provider,
+    baseUrl: entry.base_url,
+    reasoning: entry.reasoning ?? false,
+    input: entry.input ?? ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: entry.context_window ?? 128000,
+    maxTokens: entry.max_tokens ?? 32000,
+    headers: entry.headers,
+  };
+}
+
+export function resolveConfiguredLlmModel(llmConfig: LlmConfig = config.llm): ResolvedLlmModel {
+  const alias = llmConfig.default_model;
+  const entry = llmConfig.models[alias];
+  if (!entry) {
+    throw new Error(`Invalid LLM default_model "${alias}": alias is not defined in llm.models`);
+  }
+
+  const model = isCustomModel(entry)
+    ? resolveCustomModel(alias, entry)
+    : resolveBuiltInModel(alias, entry);
+
+  const apiKey = nonEmpty(entry.api_key) ?? getEnvApiKey(entry.provider);
+  const options: ProviderStreamOptions = {};
+  if (apiKey) options.apiKey = apiKey;
+  if (entry.temperature !== undefined) options.temperature = entry.temperature;
+  if (entry.max_tokens !== undefined) options.maxTokens = entry.max_tokens;
+
+  return {
+    alias,
+    entry,
+    model,
+    options,
+    hasApiKey: Boolean(apiKey),
+  };
+}
+
 class PiAIClient implements LlmClient {
+  constructor(private readonly resolved: ResolvedLlmModel) {}
+
   async complete(input: LlmCompletionInput): Promise<LlmCompletionResult> {
-    if (!config.llm.api_key) {
+    if (!this.resolved.hasApiKey) {
       return { thinking: "（配置错误）未检测到 API key", reply: "（无正文）", story: "" };
     }
     try {
-      const response = await complete(model, toContext(input), options);
+      const response = await piComplete(this.resolved.model, toContext(input), this.resolved.options);
       const text = response.content
         .filter((b) => b.type === "text")
         .map((b) => b.text)
@@ -63,11 +127,11 @@ class PiAIClient implements LlmClient {
   }
 
   async completeRaw(input: LlmCompletionInput): Promise<string> {
-    if (!config.llm.api_key) {
+    if (!this.resolved.hasApiKey) {
       throw new Error("（配置错误）未检测到 API key");
     }
     try {
-      const response = await complete(model, toContext(input), options);
+      const response = await piComplete(this.resolved.model, toContext(input), this.resolved.options);
       return response.content
         .filter((b) => b.type === "text")
         .map((b) => b.text)
@@ -78,12 +142,12 @@ class PiAIClient implements LlmClient {
   }
 
   async *stream(input: LlmCompletionInput): AsyncGenerator<string> {
-    if (!config.llm.api_key) {
+    if (!this.resolved.hasApiKey) {
       yield "（配置错误）未检测到 API key";
       return;
     }
     try {
-      const s = stream(model, toContext(input), options);
+      const s = piStream(this.resolved.model, toContext(input), this.resolved.options);
       for await (const event of s) {
         if (event.type === "text_delta") {
           yield event.delta;
@@ -100,6 +164,6 @@ class PiAIClient implements LlmClient {
   }
 }
 
-export function createLlmClient(): LlmClient {
-  return new PiAIClient();
+export function createLlmClient(llmConfig: LlmConfig = config.llm): LlmClient {
+  return new PiAIClient(resolveConfiguredLlmModel(llmConfig));
 }
