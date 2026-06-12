@@ -4,7 +4,7 @@ import { caseManifestV2Schema, type CaseManifestV2 } from "./schemas.ts";
 import type { PublicCaseManifest, EntityDef, FactDef, QuestionDef } from "@shared/types";
 import { config } from "../config.ts";
 
-const scriptDir = join(new URL("../..", import.meta.url).pathname, config.game.script_dir);
+const scriptDir = join(import.meta.dir, "..", "..", config.game.script_dir);
 
 function loadManifest(): CaseManifestV2 {
   const path = join(scriptDir, "manifest.json");

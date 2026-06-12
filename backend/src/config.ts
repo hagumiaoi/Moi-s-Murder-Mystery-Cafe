@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-const configDir = new URL(".", import.meta.url).pathname;
+const configDir = import.meta.dir;
 const configPath = join(configDir, "..", "config.toml");
 
 const serverSchema = z.object({
